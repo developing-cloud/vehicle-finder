@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: An AWS Lambda function for finding the stolen vehicles in db
+Parameters:
+  envType:
+    Type: String
+Resources:
+  lambdaVehicleFinder:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub vehicle-finder-${envType}
+      Handler: vehicle_finder.lambda_handler
+      Runtime: python3.8
+      CodeUri: .
+      MemorySize: 256
+      Timeout: 30
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/vehicle-finder-lambda-execution-role
+      Environment:
+        Variables:
+          STOLEN_VEHICLE_REGISTRY_TABLE_NAME: !Ref stolenvehicleregistry
+          EXTERNAL_STOLEN_VEHICLE_SERVICE_SECRET_ID: !Ref externalStolenVehicleServiceSecret
+  stolenvehicleregistry:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: registration-number
+          AttributeType: S
+        - AttributeName: stolen-date-time
+          AttributeType: S
+      KeySchema:
+        - AttributeName: registration-number
+          KeyType: HASH
+        - AttributeName: stolen-date-time
+          KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+  externalStolenVehicleServiceSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub /external/service/stolen-vehicle-service/secret-${envType}
+      SecretString: '{"url": "https://stolen-vehicle-service.developing.cloud/", "user": "toll-registry", "secret-key":"abc123xyz456"}'
